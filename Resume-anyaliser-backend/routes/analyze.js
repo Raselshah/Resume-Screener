@@ -1,6 +1,10 @@
 const express = require("express");
 const rateLimit = require("express-rate-limit");
+const fs = require("fs");
+const path = require("path");
+const pdfParse = require("pdf-parse");
 const { protect } = require("../middleware/auth");
+const upload = require("../middleware/upload");
 const Analysis = require("../models/Analysis");
 
 const router = express.Router();
@@ -10,6 +14,13 @@ const analyzeLimiter = rateLimit({
   max: 50,
   message: { message: "Analyze limit reached. Try again in an hour." },
 });
+
+// ── Extract text from PDF ─────────────────────────────────────────────────────
+async function extractTextFromPDF(filePath) {
+  const dataBuffer = fs.readFileSync(filePath);
+  const data = await pdfParse(dataBuffer);
+  return data.text;
+}
 
 // ── Call Groq API ─────────────────────────────────────────────────────────────
 async function callGroq(jobDescription, resumeText) {
@@ -51,19 +62,22 @@ Respond ONLY with valid JSON (no markdown, no backticks):
   "suggestions": ["specific actionable suggestion1","suggestion2","suggestion3","suggestion4","suggestion5"]
 }`;
 
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+  const response = await fetch(
+    "https://api.groq.com/openai/v1/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.3,
+        max_tokens: 1500,
+      }),
     },
-    body: JSON.stringify({
-      model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.3,
-      max_tokens: 1500,
-    }),
-  });
+  );
 
   if (!response.ok) {
     const err = await response.json();
@@ -79,15 +93,87 @@ function ruleBasedAnalysis(jobDescription, resumeText) {
   const jdLower = jobDescription.toLowerCase();
   const resumeLower = resumeText.toLowerCase();
 
-  const stopWords = new Set(["with","that","this","from","have","will","your","they","been","were","their","about","which","when","more","also","other","into","than","then","some","such","each","many","must","only","over","both","after","before","these","those","under","while","would","could","should","there","where","through","between","during","within","without","include","including","required","preferred","experience","excellent","strong","knowledge","ability","skills","working","looking","responsibilities","requirements","position","company","team","work","year","years","develop","development"]);
+  const stopWords = new Set([
+    "with",
+    "that",
+    "this",
+    "from",
+    "have",
+    "will",
+    "your",
+    "they",
+    "been",
+    "were",
+    "their",
+    "about",
+    "which",
+    "when",
+    "more",
+    "also",
+    "other",
+    "into",
+    "than",
+    "then",
+    "some",
+    "such",
+    "each",
+    "many",
+    "must",
+    "only",
+    "over",
+    "both",
+    "after",
+    "before",
+    "these",
+    "those",
+    "under",
+    "while",
+    "would",
+    "could",
+    "should",
+    "there",
+    "where",
+    "through",
+    "between",
+    "during",
+    "within",
+    "without",
+    "include",
+    "including",
+    "required",
+    "preferred",
+    "experience",
+    "excellent",
+    "strong",
+    "knowledge",
+    "ability",
+    "skills",
+    "working",
+    "looking",
+    "responsibilities",
+    "requirements",
+    "position",
+    "company",
+    "team",
+    "work",
+    "year",
+    "years",
+    "develop",
+    "development",
+  ]);
 
   const jdWords = jdLower.match(/\b[a-z][a-z0-9#+.]{2,}\b/g) || [];
   const wordFreq = {};
-  jdWords.forEach(w => { if (!stopWords.has(w)) wordFreq[w] = (wordFreq[w] || 0) + 1; });
+  jdWords.forEach((w) => {
+    if (!stopWords.has(w)) wordFreq[w] = (wordFreq[w] || 0) + 1;
+  });
 
-  const keywords = Object.entries(wordFreq).sort((a, b) => b[1] - a[1]).slice(0, 30).map(([w]) => w);
-  const matched = keywords.filter(k => resumeLower.includes(k));
-  const missing = keywords.filter(k => !resumeLower.includes(k)).slice(0, 10);
+  const keywords = Object.entries(wordFreq)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 30)
+    .map(([w]) => w);
+  const matched = keywords.filter((k) => resumeLower.includes(k));
+  const missing = keywords.filter((k) => !resumeLower.includes(k)).slice(0, 10);
 
   // More realistic scoring with variance
   const keywordRatio = matched.length / Math.max(keywords.length, 1);
@@ -113,12 +199,16 @@ function ruleBasedAnalysis(jobDescription, resumeText) {
     matched_keywords: matched.slice(0, 12),
     missing_keywords: missing.slice(0, 10),
     strengths: [
-      matched.length > 5 ? `Good coverage of ${matched.slice(0, 2).join(" and ")} skills` : "Some relevant experience present",
+      matched.length > 5
+        ? `Good coverage of ${matched.slice(0, 2).join(" and ")} skills`
+        : "Some relevant experience present",
       "Resume structure appears organized",
       "Relevant industry background detected",
     ],
     suggestions: [
-      missing.length > 0 ? `Add these missing keywords naturally: ${missing.slice(0, 3).join(", ")}` : "Keyword coverage is strong.",
+      missing.length > 0
+        ? `Add these missing keywords naturally: ${missing.slice(0, 3).join(", ")}`
+        : "Keyword coverage is strong.",
       "Quantify achievements with numbers (e.g. 'improved performance by 40%')",
       "Mirror the job description's exact terminology for ATS optimization",
       "Add a tailored professional summary at the top matching this role",
@@ -128,97 +218,159 @@ function ruleBasedAnalysis(jobDescription, resumeText) {
 }
 
 // ── POST /api/analyze (authenticated) ────────────────────────────────────────
-router.post("/", protect, analyzeLimiter, async (req, res) => {
-  const { jobDescription, resumeText, jobTitle } = req.body;
-  if (!jobDescription || !resumeText)
-    return res.status(400).json({ message: "Job description and resume are required." });
+router.post(
+  "/",
+  protect,
+  analyzeLimiter,
+  upload.single("resume"),
+  async (req, res) => {
+    const { jobDescription, jobTitle } = req.body;
+    let resumeText = req.body.resumeText;
 
-  let parsed; let engine = "groq";
+    // Extract text from uploaded PDF if present
+    if (req.file) {
+      try {
+        resumeText = await extractTextFromPDF(req.file.path);
+        // Clean up uploaded file after extraction
+        fs.unlinkSync(req.file.path);
+      } catch (err) {
+        console.error("PDF extraction error:", err);
+        return res
+          .status(400)
+          .json({
+            message:
+              "Failed to extract text from PDF. Please ensure the file is a valid PDF.",
+          });
+      }
+    }
 
-  try {
-    const rawText = await callGroq(jobDescription, resumeText);
-    const clean = rawText.replace(/```json|```/g, "").trim();
-    const jsonMatch = clean.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("No JSON in Groq response");
-    parsed = JSON.parse(jsonMatch[0]);
-  } catch (groqErr) {
-    console.warn("⚠️  Groq unavailable, using rule-based fallback:", groqErr.message);
-    parsed = ruleBasedAnalysis(jobDescription, resumeText);
-    engine = "rule-based";
-  }
+    if (!jobDescription || !resumeText)
+      return res
+        .status(400)
+        .json({ message: "Job description and resume are required." });
 
-  try {
-    const analysis = await Analysis.create({
-      user: req.user._id,
-      jobTitle: jobTitle || "Untitled Role",
-      jobDescription,
-      resumeText,
-      score: Math.min(100, Math.max(0, parsed.score)),
-      label: parsed.label,
-      summary: parsed.summary,
-      experienceMatch: parsed.experience_match || 0,
-      skillsMatch: parsed.skills_match || 0,
-      educationMatch: parsed.education_match || 0,
-      keywordMatch: parsed.keyword_match || 0,
-      matchedKeywords: parsed.matched_keywords || [],
-      missingKeywords: parsed.missing_keywords || [],
-      strengths: parsed.strengths || [],
-      suggestions: parsed.suggestions || [],
-      engine,
-    });
-    res.status(201).json({ analysis, engine });
-  } catch (dbErr) {
-    res.status(500).json({ message: "Failed to save analysis.", error: dbErr.message });
-  }
-});
+    let parsed;
+    let engine = "groq";
+
+    try {
+      const rawText = await callGroq(jobDescription, resumeText);
+      const clean = rawText.replace(/```json|```/g, "").trim();
+      const jsonMatch = clean.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("No JSON in Groq response");
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch (groqErr) {
+      console.warn(
+        "⚠️  Groq unavailable, using rule-based fallback:",
+        groqErr.message,
+      );
+      parsed = ruleBasedAnalysis(jobDescription, resumeText);
+      engine = "rule-based";
+    }
+
+    try {
+      const analysis = await Analysis.create({
+        user: req.user._id,
+        jobTitle: jobTitle || "Untitled Role",
+        jobDescription,
+        resumeText,
+        score: Math.min(100, Math.max(0, parsed.score)),
+        label: parsed.label,
+        summary: parsed.summary,
+        experienceMatch: parsed.experience_match || 0,
+        skillsMatch: parsed.skills_match || 0,
+        educationMatch: parsed.education_match || 0,
+        keywordMatch: parsed.keyword_match || 0,
+        matchedKeywords: parsed.matched_keywords || [],
+        missingKeywords: parsed.missing_keywords || [],
+        strengths: parsed.strengths || [],
+        suggestions: parsed.suggestions || [],
+        engine,
+      });
+      res.status(201).json({ analysis, engine });
+    } catch (dbErr) {
+      res
+        .status(500)
+        .json({ message: "Failed to save analysis.", error: dbErr.message });
+    }
+  },
+);
 
 // ── POST /api/analyze/guest (no auth, limited) ────────────────────────────────
 const guestLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000, // 24 hours
   max: 3,
-  message: { message: "Guest limit reached (3/day). Please sign up for unlimited access." },
+  message: {
+    message:
+      "Guest limit reached (3/day). Please sign up for unlimited access.",
+  },
   keyGenerator: (req) => req.ip,
 });
 
-router.post("/guest", guestLimiter, async (req, res) => {
-  const { jobDescription, resumeText, jobTitle } = req.body;
-  if (!jobDescription || !resumeText)
-    return res.status(400).json({ message: "Job description and resume are required." });
+router.post(
+  "/guest",
+  guestLimiter,
+  upload.single("resume"),
+  async (req, res) => {
+    const { jobDescription, jobTitle } = req.body;
+    let resumeText = req.body.resumeText;
 
-  let parsed; let engine = "groq";
+    // Extract text from uploaded PDF if present
+    if (req.file) {
+      try {
+        resumeText = await extractTextFromPDF(req.file.path);
+        // Clean up uploaded file after extraction
+        fs.unlinkSync(req.file.path);
+      } catch (err) {
+        console.error("PDF extraction error:", err);
+        return res
+          .status(400)
+          .json({
+            message:
+              "Failed to extract text from PDF. Please ensure the file is a valid PDF.",
+          });
+      }
+    }
 
-  try {
-    const rawText = await callGroq(jobDescription, resumeText);
-    const clean = rawText.replace(/```json|```/g, "").trim();
-    const jsonMatch = clean.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("No JSON in Groq response");
-    parsed = JSON.parse(jsonMatch[0]);
-  } catch (groqErr) {
-    console.warn("⚠️  Groq fallback for guest:", groqErr.message);
-    parsed = ruleBasedAnalysis(jobDescription, resumeText);
-    engine = "rule-based";
-  }
+    if (!jobDescription || !resumeText)
+      return res
+        .status(400)
+        .json({ message: "Job description and resume are required." });
 
-  // Guest: return result but don't save to DB
-  res.status(200).json({
-    analysis: {
-      jobTitle: jobTitle || "Untitled Role",
-      score: Math.min(100, Math.max(0, parsed.score)),
-      label: parsed.label,
-      summary: parsed.summary,
-      experienceMatch: parsed.experience_match || 0,
-      skillsMatch: parsed.skills_match || 0,
-      educationMatch: parsed.education_match || 0,
-      keywordMatch: parsed.keyword_match || 0,
-      matchedKeywords: parsed.matched_keywords || [],
-      missingKeywords: parsed.missing_keywords || [],
-      strengths: parsed.strengths || [],
-      suggestions: parsed.suggestions || [],
-    },
-    engine,
-    guest: true,
-  });
-});
+    let parsed;
+    let engine = "groq";
+
+    try {
+      const rawText = await callGroq(jobDescription, resumeText);
+      const clean = rawText.replace(/```json|```/g, "").trim();
+      const jsonMatch = clean.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("No JSON in Groq response");
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch (groqErr) {
+      console.warn("⚠️  Groq fallback for guest:", groqErr.message);
+      parsed = ruleBasedAnalysis(jobDescription, resumeText);
+      engine = "rule-based";
+    }
+
+    // Guest: return result but don't save to DB
+    res.status(200).json({
+      analysis: {
+        jobTitle: jobTitle || "Untitled Role",
+        score: Math.min(100, Math.max(0, parsed.score)),
+        label: parsed.label,
+        summary: parsed.summary,
+        experienceMatch: parsed.experience_match || 0,
+        skillsMatch: parsed.skills_match || 0,
+        educationMatch: parsed.education_match || 0,
+        keywordMatch: parsed.keyword_match || 0,
+        matchedKeywords: parsed.matched_keywords || [],
+        missingKeywords: parsed.missing_keywords || [],
+        strengths: parsed.strengths || [],
+        suggestions: parsed.suggestions || [],
+      },
+      engine,
+      guest: true,
+    });
+  },
+);
 
 module.exports = router;
-

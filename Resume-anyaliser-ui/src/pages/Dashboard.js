@@ -1,28 +1,39 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
+import { useAuth } from "../context/AuthContext";
 
 // ── Score ring SVG ────────────────────────────────────────────────────────────
 function ScoreRing({ score }) {
   const r = 46;
   const circ = 2 * Math.PI * r;
   const offset = circ - (score / 100) * circ;
-  const color = score >= 70 ? "#22c55e" : score >= 50 ? "#f59e0b" : score >= 30 ? "#f97316" : "#ef4444";
+  const color =
+    score >= 70
+      ? "#22c55e"
+      : score >= 50
+        ? "#f59e0b"
+        : score >= 30
+          ? "#f97316"
+          : "#ef4444";
   return (
     <div className="score-ring-wrap">
       <svg width="110" height="110" viewBox="0 0 110 110">
         <circle className="score-ring-bg" cx="55" cy="55" r={r} />
         <circle
           className="score-ring-fill"
-          cx="55" cy="55" r={r}
+          cx="55"
+          cy="55"
+          r={r}
           stroke={color}
           strokeDasharray={circ}
           strokeDashoffset={offset}
         />
       </svg>
       <div className="score-ring-text">
-        <span className="score-num" style={{ color }}>{score}</span>
+        <span className="score-num" style={{ color }}>
+          {score}
+        </span>
         <span className="score-pct">/ 100</span>
       </div>
     </div>
@@ -31,15 +42,27 @@ function ScoreRing({ score }) {
 
 // ── Dimension bar ─────────────────────────────────────────────────────────────
 function DimBar({ label, value }) {
-  const color = value >= 70 ? "#22c55e" : value >= 50 ? "#f59e0b" : value >= 30 ? "#f97316" : "#ef4444";
+  const color =
+    value >= 70
+      ? "#22c55e"
+      : value >= 50
+        ? "#f59e0b"
+        : value >= 30
+          ? "#f97316"
+          : "#ef4444";
   return (
     <div className="dim-row">
       <div className="dim-label-row">
         <span className="dim-name">{label}</span>
-        <span className="dim-val" style={{ color }}>{value}%</span>
+        <span className="dim-val" style={{ color }}>
+          {value}%
+        </span>
       </div>
       <div className="dim-bar">
-        <div className="dim-fill" style={{ width: `${value}%`, background: color }} />
+        <div
+          className="dim-fill"
+          style={{ width: `${value}%`, background: color }}
+        />
       </div>
     </div>
   );
@@ -47,12 +70,15 @@ function DimBar({ label, value }) {
 
 // ── Result display ────────────────────────────────────────────────────────────
 function ResultDisplay({ result, engine, isGuest }) {
-  const scoreColor = result.score >= 70 ? "c-green" : result.score >= 50 ? "c-yellow" : "c-red";
+  const scoreColor =
+    result.score >= 70 ? "c-green" : result.score >= 50 ? "c-yellow" : "c-red";
 
   return (
     <div className="result-section">
-      <span className={`engine-badge ${engine === "groq" ? "engine-groq" : "engine-rule"}`}>
-        {engine === "groq" ? "⚡ Powered by Groq AI" : "📊 Keyword analysis mode"}
+      <span
+        className={`engine-badge ${engine === "groq" ? "engine-groq" : "engine-rule"}`}
+      >
+        {engine === "groq" ? "Powered by Groq AI" : "📊 Keyword analysis mode"}
       </span>
 
       {/* Score Hero */}
@@ -67,10 +93,22 @@ function ResultDisplay({ result, engine, isGuest }) {
       {/* Dimensions */}
       <div className="dimensions-card">
         <div className="card-title">Score breakdown</div>
-        <DimBar label="Skills Match" value={result.skillsMatch || result.skills_match || 0} />
-        <DimBar label="Experience Match" value={result.experienceMatch || result.experience_match || 0} />
-        <DimBar label="Keyword Coverage" value={result.keywordMatch || result.keyword_match || 0} />
-        <DimBar label="Education Fit" value={result.educationMatch || result.education_match || 0} />
+        <DimBar
+          label="Skills Match"
+          value={result.skillsMatch || result.skills_match || 0}
+        />
+        <DimBar
+          label="Experience Match"
+          value={result.experienceMatch || result.experience_match || 0}
+        />
+        <DimBar
+          label="Keyword Coverage"
+          value={result.keywordMatch || result.keyword_match || 0}
+        />
+        <DimBar
+          label="Education Fit"
+          value={result.educationMatch || result.education_match || 0}
+        />
       </div>
 
       {/* Keywords + Strengths */}
@@ -78,17 +116,25 @@ function ResultDisplay({ result, engine, isGuest }) {
         <div className="info-card">
           <div className="card-title">✅ Matched keywords</div>
           <div className="tags">
-            {(result.matchedKeywords || result.matched_keywords || []).map((k) => (
-              <span key={k} className="tag tag-match">{k}</span>
-            ))}
+            {(result.matchedKeywords || result.matched_keywords || []).map(
+              (k) => (
+                <span key={k} className="tag tag-match">
+                  {k}
+                </span>
+              ),
+            )}
           </div>
         </div>
         <div className="info-card">
           <div className="card-title">❌ Missing keywords</div>
           <div className="tags">
-            {(result.missingKeywords || result.missing_keywords || []).map((k) => (
-              <span key={k} className="tag tag-miss">{k}</span>
-            ))}
+            {(result.missingKeywords || result.missing_keywords || []).map(
+              (k) => (
+                <span key={k} className="tag tag-miss">
+                  {k}
+                </span>
+              ),
+            )}
           </div>
         </div>
       </div>
@@ -99,7 +145,9 @@ function ResultDisplay({ result, engine, isGuest }) {
           <div className="card-title">💪 Your strengths</div>
           <div className="tags">
             {(result.strengths || []).map((s) => (
-              <span key={s} className="tag tag-strength">{s}</span>
+              <span key={s} className="tag tag-strength">
+                {s}
+              </span>
             ))}
           </div>
         </div>
@@ -120,7 +168,10 @@ function ResultDisplay({ result, engine, isGuest }) {
       {isGuest && (
         <div className="upgrade-card">
           <h3>Save your analysis history</h3>
-          <p>You've used {3 - 0} of 3 free guest analyses. Create a free account to get unlimited analyses and save your history.</p>
+          <p>
+            You've used {3 - 0} of 3 free guest analyses. Create a free account
+            to get unlimited analyses and save your history.
+          </p>
           <Link to="/register">
             <button className="btn-primary">Create free account →</button>
           </Link>
@@ -133,28 +184,98 @@ function ResultDisplay({ result, engine, isGuest }) {
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const { user } = useAuth();
-  const [form, setForm] = useState({ jobTitle: "", jobDescription: "", resumeText: "" });
+  const [form, setForm] = useState({
+    jobTitle: "",
+    jobDescription: "",
+    resumeText: "",
+  });
+  const [resumeFile, setResumeFile] = useState(null);
   const [result, setResult] = useState(null);
   const [engine, setEngine] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
+  const fileInputRef = useRef(null);
   const isGuest = !user;
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) =>
+    setForm({ ...form, [e.target.name]: e.target.value });
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.type !== "application/pdf") {
+        setError("Please upload a PDF file");
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        setError("File size must be less than 10MB");
+        return;
+      }
+      setResumeFile(file);
+      setForm({ ...form, resumeText: "" }); // Clear text when file is selected
+      setError("");
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      if (file.type !== "application/pdf") {
+        setError("Please upload a PDF file");
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        setError("File size must be less than 10MB");
+        return;
+      }
+      setResumeFile(file);
+      setForm({ ...form, resumeText: "" });
+      setError("");
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  const clearFile = () => {
+    setResumeFile(null);
+    setError("");
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(""); setResult(null); setLoading(true);
+    setError("");
+    setResult(null);
+    setLoading(true);
+
     try {
       let res;
+      const formData = new FormData();
+      formData.append("jobDescription", form.jobDescription);
+      formData.append("jobTitle", form.jobTitle);
+
+      if (resumeFile) {
+        formData.append("resume", resumeFile);
+      } else if (form.resumeText) {
+        formData.append("resumeText", form.resumeText);
+      } else {
+        throw new Error("Please upload a resume PDF or paste resume text");
+      }
+
       if (isGuest) {
-        // Guest uses public endpoint
-        res = await fetch(`${process.env.REACT_APP_API_URL || "http://localhost:5000/api"}/analyze/guest`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
-        });
+        res = await fetch(
+          `${process.env.REACT_APP_API_URL || "http://localhost:5000/api"}/analyze/guest`,
+          {
+            method: "POST",
+            body: formData,
+          },
+        );
         if (!res.ok) {
           const err = await res.json();
           throw new Error(err.message || "Analysis failed");
@@ -163,7 +284,11 @@ export default function Dashboard() {
         setResult(data.analysis);
         setEngine(data.engine || "");
       } else {
-        res = await api.post("/analyze", form);
+        res = await api.post("/analyze", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
         setResult(res.data.analysis);
         setEngine(res.data.engine || "");
       }
@@ -178,29 +303,90 @@ export default function Dashboard() {
     <div className="page">
       <div className="page-header">
         <h1>Resume Screener</h1>
-        <p>{isGuest ? "Try it free — no account needed (3 analyses/day)" : `Welcome back, ${user?.name}. Paste a JD and resume to analyze your fit.`}</p>
+        <p>
+          {isGuest
+            ? "Try it free — no account needed (3 analyses/day)"
+            : `Welcome back, ${user?.name}. Paste a JD and upload your resume to analyze your fit.`}
+        </p>
       </div>
 
       <div className="screener-form">
         {isGuest && (
           <div className="guest-info">
-            <strong>Guest mode</strong> — 3 free analyses per day. <Link to="/register">Sign up free</Link> for unlimited access + history.
+            <strong>Guest mode</strong> — 3 free analyses per day.{" "}
+            <Link to="/register">Sign up free</Link> for unlimited access +
+            history.
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Job title (optional)</label>
-            <input type="text" name="jobTitle" value={form.jobTitle} onChange={handleChange} placeholder="e.g. Senior Full Stack Developer" />
+            <input
+              type="text"
+              name="jobTitle"
+              value={form.jobTitle}
+              onChange={handleChange}
+              placeholder="e.g. Senior Full Stack Developer"
+            />
           </div>
           <div className="two-col">
             <div className="form-group">
               <label>Job description *</label>
-              <textarea name="jobDescription" value={form.jobDescription} onChange={handleChange} placeholder="Paste the full job description here..." rows={10} required />
+              <textarea
+                name="jobDescription"
+                value={form.jobDescription}
+                onChange={handleChange}
+                placeholder="Paste the full job description here..."
+                rows={10}
+                required
+              />
             </div>
             <div className="form-group">
               <label>Your resume *</label>
-              <textarea name="resumeText" value={form.resumeText} onChange={handleChange} placeholder="Paste your resume content here..." rows={10} required />
+              <div
+                className={`file-drop-zone ${resumeFile ? "has-file" : ""}`}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+              >
+                {resumeFile ? (
+                  <div className="file-preview">
+                    <div className="file-icon">📄</div>
+                    <div className="file-info">
+                      <span className="file-name">{resumeFile.name}</span>
+                      <span className="file-size">
+                        {(resumeFile?.size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="file-remove"
+                      onClick={clearFile}
+                      title="Remove file"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <label className="drop-label" htmlFor="resume-file-input">
+                    <div className="drop-icon">📎</div>
+                    <div className="drop-text">
+                      <span className="drop-main">
+                        Drop your PDF here or click to browse
+                      </span>
+                      <span className="drop-sub">PDF files only, max 10MB</span>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      id="resume-file-input"
+                      type="file"
+                      accept=".pdf,application/pdf"
+                      onChange={handleFileChange}
+                      style={{ display: "none" }}
+                    />
+                  </label>
+                )}
+              </div>
             </div>
           </div>
           {error && <div className="alert alert-error">{error}</div>}
@@ -209,7 +395,9 @@ export default function Dashboard() {
           </button>
           {isGuest && (
             <Link to="/login">
-              <button type="button" className="btn-ghost">Sign in to save results</button>
+              <button type="button" className="btn-ghost">
+                Sign in to save results
+              </button>
             </Link>
           )}
         </form>
@@ -218,11 +406,15 @@ export default function Dashboard() {
       {loading && (
         <div className="analysis-loading">
           <div className="spinner" />
-          <p style={{ color: "var(--text2)", fontSize: 14 }}>AI is analyzing your resume against the job description...</p>
+          <p style={{ color: "var(--text2)", fontSize: 14 }}>
+            AI is analyzing your resume against the job description...
+          </p>
         </div>
       )}
 
-      {result && <ResultDisplay result={result} engine={engine} isGuest={isGuest} />}
+      {result && (
+        <ResultDisplay result={result} engine={engine} isGuest={isGuest} />
+      )}
     </div>
   );
 }
