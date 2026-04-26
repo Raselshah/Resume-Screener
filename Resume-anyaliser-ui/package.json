@@ -13,6 +13,7 @@
     "start": "react-scripts start",
     "build": "react-scripts build"
   },
+  "packageManager": "pnpm@10.22.0",
   "proxy": "http://localhost:5000",
   "browserslist": {
     "production": [
