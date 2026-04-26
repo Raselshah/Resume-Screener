@@ -16,8 +16,20 @@ const analyzeLimiter = rateLimit({
 });
 
 // ── Extract text from PDF ─────────────────────────────────────────────────────
-async function extractTextFromPDF(filePath) {
-  const dataBuffer = fs.readFileSync(filePath);
+// Works with both file paths and buffers (for serverless environments)
+async function extractTextFromPDF(fileSource) {
+  let dataBuffer;
+
+  // If it's a buffer (memory storage), use it directly
+  if (Buffer.isBuffer(fileSource)) {
+    dataBuffer = fileSource;
+  } else if (typeof fileSource === "string") {
+    // If it's a file path, read the file
+    dataBuffer = fs.readFileSync(fileSource);
+  } else {
+    throw new Error("Invalid file source");
+  }
+
   const data = await pdfParse(dataBuffer);
   return data.text;
 }
@@ -230,17 +242,14 @@ router.post(
     // Extract text from uploaded PDF if present
     if (req.file) {
       try {
-        resumeText = await extractTextFromPDF(req.file.path);
-        // Clean up uploaded file after extraction
-        fs.unlinkSync(req.file.path);
+        // Use buffer directly for memory storage (serverless compatible)
+        resumeText = await extractTextFromPDF(req.file.buffer);
       } catch (err) {
         console.error("PDF extraction error:", err);
-        return res
-          .status(400)
-          .json({
-            message:
-              "Failed to extract text from PDF. Please ensure the file is a valid PDF.",
-          });
+        return res.status(400).json({
+          message:
+            "Failed to extract text from PDF. Please ensure the file is a valid PDF.",
+        });
       }
     }
 
@@ -317,17 +326,14 @@ router.post(
     // Extract text from uploaded PDF if present
     if (req.file) {
       try {
-        resumeText = await extractTextFromPDF(req.file.path);
-        // Clean up uploaded file after extraction
-        fs.unlinkSync(req.file.path);
+        // Use buffer directly for memory storage (serverless compatible)
+        resumeText = await extractTextFromPDF(req.file.buffer);
       } catch (err) {
         console.error("PDF extraction error:", err);
-        return res
-          .status(400)
-          .json({
-            message:
-              "Failed to extract text from PDF. Please ensure the file is a valid PDF.",
-          });
+        return res.status(400).json({
+          message:
+            "Failed to extract text from PDF. Please ensure the file is a valid PDF.",
+        });
       }
     }
 
